@@ -64,9 +64,9 @@ def load_level(filename):
 
 
 tile_images = {
-    'wall': load_image('data/wall2.png'),
+    'wall': load_image('data/wall1.jpg')
 }
-player_image = None
+player_image = load_image('data/player_static.png')
 
 tile_width = tile_height = 75
 
@@ -84,6 +84,29 @@ tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 
 
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
+        super().__init__(all_sprites)
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(x, y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+        self.image = self.frames[self.cur_frame]
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(player_group, all_sprites)
@@ -91,11 +114,26 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(
             tile_width * pos_x + 15, tile_height * pos_y + 5)
         self.pos = pos_x, pos_y
+        self.moving = False
+        self.falling = False
 
-
-all_sprites = pygame.sprite.Group()
-tiles_group = pygame.sprite.Group()
-player_group = pygame.sprite.Group()
+    def update(self):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if (event.key == pygame.K_LEFT
+                        or event.key == pygame.K_RIGHT
+                        or event.key == pygame.K_SPACE):
+                    self.moving = True
+                    self.falling = True
+        if self.moving:
+            self.image = AnimatedSprite(load_image('player_sprite.png'), 8, 2, 50, 50)
+            self.moving = False
+        if self.falling:
+            while y > 0 and level_map[y - 1][x] == '.':
+                player.pos = x, y + 1
+                player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
+                                                           tile_height * player.pos[1] + 5)
+            self.falling = False
 
 
 def generate_level(level):
@@ -132,18 +170,15 @@ while running:
                     player.pos = x + 1, y
                     player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
                                                                tile_height * player.pos[1] + 5)
-            elif event.key == pygame.K_UP:
+            elif event.key == pygame.K_SPACE:
                 if y > 0 and level_map[y - 1][x] == '.':
                     player.pos = x, y - 1
                     player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
                                                                tile_height * player.pos[1] + 5)
-            elif event.key == pygame.K_DOWN:
-                if y < level_y and level_map[y + 1][x] == '.':
-                    player.pos = x, y + 1
-                    player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
-                                                               tile_height * player.pos[1] + 5)
-    make_fon('data/phone1.jpg')
+
+    make_fon('data/phone2.png')
     tiles_group.draw(screen)
+    player_group.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
 
