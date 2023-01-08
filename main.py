@@ -176,7 +176,7 @@ while running:
                     player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
                                                                tile_height * player.pos[1] + 5)
 
-    make_fon('data/phone2.png')
+    make_fon('data/fon2.png')
     tiles_group.draw(screen)
     player_group.draw(screen)
     pygame.display.flip()
