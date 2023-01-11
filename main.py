@@ -3,7 +3,7 @@ import sys
 import os
 
 pygame.init()
-WIDTH, HEIGHT = 1000, 700
+WIDTH, HEIGHT = 1130, 700
 FPS = 50
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
@@ -31,7 +31,7 @@ def load_image(name, colorkey=None):
 
 def make_fon(name):
     fon0 = load_image(name)
-    fon = pygame.transform.scale(fon0, (1000, 700))
+    fon = pygame.transform.scale(fon0, (1130, 700))
     screen.blit(fon, (0, 0))
 
 
@@ -63,48 +63,50 @@ def load_level(filename):
     return list(map(lambda x: list(x.ljust(max_width, '.')), level_map))
 
 
-tile_images = {
-    'wall': load_image('data/wall1.jpg')
-}
-player_image = load_image('data/player_static.png')
+wall_image = load_image('data/wall1.jpg')
+player_image = load_image('data/player_sprite3.png')
 
 tile_width = tile_height = 75
-
-
-class Tile(pygame.sprite.Sprite):
-    def __init__(self, tile_type, pos_x, pos_y):
-        super().__init__(tiles_group, all_sprites)
-        self.image = tile_images[tile_type]
-        self.rect = self.image.get_rect().move(
-            tile_width * pos_x, tile_height * pos_y)
 
 
 all_sprites = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
+left_group = pygame.sprite.Group()
+right_group = pygame.sprite.Group()
+gun_group = pygame.sprite.Group()
 
 
-class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y):
-        super().__init__(all_sprites)
-        self.frames = []
-        self.cut_sheet(sheet, columns, rows)
-        self.cur_frame = 0
-        self.image = self.frames[self.cur_frame]
-        self.rect = self.rect.move(x, y)
+class Left(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(left_group, all_sprites)
+        self.image = wall_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x + 15, tile_height * pos_y + 5)
 
-    def cut_sheet(self, sheet, columns, rows):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
-        for j in range(rows):
-            for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
-                self.frames.append(sheet.subsurface(pygame.Rect(
-                    frame_location, self.rect.size)))
 
-    def update(self):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = self.frames[self.cur_frame]
+class Right(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(right_group, all_sprites)
+        self.image = wall_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x + 15, tile_height * pos_y + 5)
+
+
+class Wall(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(tiles_group, all_sprites)
+        self.image = wall_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x + 15, tile_height * pos_y + 5)
+
+
+class Mob(pygame.sprite.Sprite):
+    pass
+
+
+class Gun(pygame.sprite.Sprite):
+    pass
 
 
 class Player(pygame.sprite.Sprite):
@@ -112,36 +114,38 @@ class Player(pygame.sprite.Sprite):
         super().__init__(player_group, all_sprites)
         self.image = player_image
         self.rect = self.image.get_rect().move(
-            tile_width * pos_x + 15, tile_height * pos_y + 5)
+            pos_x * tile_width + 15, pos_y * tile_height + 5)
         self.pos = pos_x, pos_y
-        self.moving = False
-        self.falling = False
+        self.left = False
+        self.right = True
+        self.count = 0
 
     def update(self):
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if (event.key == pygame.K_LEFT
-                        or event.key == pygame.K_RIGHT
-                        or event.key == pygame.K_SPACE):
-                    self.moving = True
-                    self.falling = True
-        if self.moving:
-            self.image = AnimatedSprite(load_image('player_sprite.png'), 8, 2, 50, 50)
-            self.moving = False
-        if self.falling:
-            while y > 0 and level_map[y - 1][x] == '.':
-                player.pos = x, y + 1
-                player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
-                                                           tile_height * player.pos[1] + 5)
-            self.falling = False
+        if not pygame.sprite.spritecollideany(self, tiles_group):
+            self.rect = self.rect.move(0, 10)
+        if self.left:
+            if self.count % 2 == 0:
+                self.image = load_image('data/player_sprite33.png')
+            else:
+                self.image = load_image('data/player_sprite22.png')
+
+        if self.right:
+            if self.count % 2 == 0:
+                self.image = load_image('data/player_sprite3.png')
+            else:
+                self.image = load_image('data/player_sprite2.png')
 
 
 def generate_level(level):
     new_player, x, y = None, None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
-            if level[y][x] == '#':
-                Tile('wall', x, y)
+            if level[y][x] == '%':
+                Left(x, y)
+            elif level[y][x] == '*':
+                Right(x, y)
+            elif level[y][x] == '#':
+                Wall(x, y)
             elif level[y][x] == '@':
                 new_player = Player(x, y)
                 level[y][x] = '.'
@@ -159,24 +163,28 @@ while running:
         if event.type == pygame.QUIT:
             terminate()
         if event.type == pygame.KEYDOWN:
-            x, y = player.pos
-            if event.key == pygame.K_LEFT:
-                if x > 0 and level_map[y][x - 1] == '.':
-                    player.pos = x - 1, y
-                    player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
-                                                               tile_height * player.pos[1] + 5)
-            elif event.key == pygame.K_RIGHT:
-                if x < level_x and level_map[y][x + 1] == '.':
-                    player.pos = x + 1, y
-                    player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
-                                                               tile_height * player.pos[1] + 5)
-            elif event.key == pygame.K_SPACE:
-                if y > 0 and level_map[y - 1][x] == '.':
-                    player.pos = x, y - 1
-                    player.rect = player.image.get_rect().move(tile_width * player.pos[0] + 15,
-                                                               tile_height * player.pos[1] + 5)
+            if not pygame.sprite.spritecollideany(player, left_group):
+                if event.key == pygame.K_LEFT:
+                    player.left = True
+                    player.right = False
+                    player.count += 1
+                    player.rect = player.rect.move(-30, 0)
+            else:
+                player.rect = player.rect.move(10, 0)
+            if not pygame.sprite.spritecollideany(player, right_group):
+                if event.key == pygame.K_RIGHT:
+                    player.right = True
+                    player.left = False
+                    player.count += 1
+                    player.rect = player.rect.move(30, 0)
+            else:
+                player.rect = player.rect.move(-10, 0)
+            if event.key == pygame.K_SPACE:
+                if pygame.sprite.spritecollideany(player, tiles_group):
+                    player.rect = player.rect.move(0, -200)
 
     make_fon('data/fon2.png')
+    player_group.update()
     tiles_group.draw(screen)
     player_group.draw(screen)
     pygame.display.flip()
