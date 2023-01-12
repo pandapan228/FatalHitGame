@@ -1,6 +1,8 @@
 import pygame
 import sys
 import os
+from random import choice, randrange
+
 
 pygame.init()
 WIDTH, HEIGHT = 1130, 700
@@ -65,6 +67,8 @@ def load_level(filename):
 
 wall_image = load_image('data/wall1.jpg')
 player_image = load_image('data/player_sprite3.png')
+gun_image = load_image('data/gun_sprite1.png')
+
 
 tile_width = tile_height = 75
 
@@ -101,12 +105,27 @@ class Wall(pygame.sprite.Sprite):
             tile_width * pos_x + 15, tile_height * pos_y + 5)
 
 
-class Mob(pygame.sprite.Sprite):
-    pass
-
-
 class Gun(pygame.sprite.Sprite):
-    pass
+    def __init__(self, pos_x, pos_y):
+        super().__init__(gun_group, all_sprites)
+        self.image = gun_image
+        self.rect = self.image.get_rect().move(pos_x, pos_y)
+
+    def update(self):
+        if player.left:
+            self.image = load_image('data/gun_sprite11.png')
+            if (pygame.sprite.spritecollideany(self, left_group)
+                    or pygame.sprite.spritecollideany(self, tiles_group)):
+                self.kill()
+            else:
+                self.rect = self.rect.move(-50, 0)
+        if player.right:
+            self.image = load_image('data/gun_sprite1.png')
+            if (pygame.sprite.spritecollideany(self, right_group)
+                    or pygame.sprite.spritecollideany(self, tiles_group)):
+                self.kill()
+            else:
+                self.rect = self.rect.move(50, 0)
 
 
 class Player(pygame.sprite.Sprite):
@@ -134,6 +153,7 @@ class Player(pygame.sprite.Sprite):
                 self.image = load_image('data/player_sprite3.png')
             else:
                 self.image = load_image('data/player_sprite2.png')
+
 
 
 def generate_level(level):
@@ -182,14 +202,20 @@ while running:
             if event.key == pygame.K_SPACE:
                 if pygame.sprite.spritecollideany(player, tiles_group):
                     player.rect = player.rect.move(0, -200)
+            if event.key == pygame.K_n:
+                if player.right:
+                    Gun(player.rect.x + 50, player.rect.y + 8)
+                else:
+                    Gun(player.rect.x - 28, player.rect.y + 8)
 
     make_fon('data/fon2.png')
+    gun_group.update()
     player_group.update()
     tiles_group.draw(screen)
+    gun_group.draw(screen)
     player_group.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
 
 
-end_screen()
 terminate()
