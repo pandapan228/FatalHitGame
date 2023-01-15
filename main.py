@@ -79,6 +79,7 @@ player_group = pygame.sprite.Group()
 left_group = pygame.sprite.Group()
 right_group = pygame.sprite.Group()
 gun_group = pygame.sprite.Group()
+mob_group = pygame.sprite.Group()
 
 
 class Left(pygame.sprite.Sprite):
@@ -103,6 +104,39 @@ class Wall(pygame.sprite.Sprite):
         self.image = wall_image
         self.rect = self.image.get_rect().move(
             tile_width * pos_x + 15, tile_height * pos_y + 5)
+
+
+class Mob(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(mob_group, all_sprites)
+        images1 = ['data/mob1.png', 'data/mob2.png', 'data/mob3.png']
+        self.mob_image1 = load_image(choice(images1))
+        images2 = ['data/mob11.png', 'data/mob22.png', 'data/mob33.png']
+        self.mob_image2 = load_image(choice(images2))
+        self.image = self.mob_image1
+        self.count = 0
+        self.rect = self.image.get_rect().move(pos_x, pos_y)
+
+    def update(self):
+        if not pygame.sprite.spritecollideany(self, tiles_group):
+            self.rect = self.rect.move(0, 10)
+        if self.rect.x >= 500:
+            if not pygame.sprite.spritecollideany(self, left_group):
+                self.image = self.mob_image2
+                self.rect.move(-10, 0)
+            else:
+                self.image = self.mob_image1
+                self.rect.move(10, 0)
+        else:
+            if not pygame.sprite.spritecollideany(self, right_group):
+                self.image = self.mob_image1
+                self.rect.move(10, 0)
+            else:
+                self.image = self.mob_image2
+                self.rect.move(-10, 0)
+        if pygame.sprite.spritecollideany(self, gun_group):
+            self.kill()
+
 
 
 class Gun(pygame.sprite.Sprite):
@@ -153,7 +187,10 @@ class Player(pygame.sprite.Sprite):
                 self.image = load_image('data/player_sprite3.png')
             else:
                 self.image = load_image('data/player_sprite2.png')
-
+        if pygame.sprite.spritecollideany(self, mob_group):
+            self.kill()
+            end_screen()
+            terminate()
 
 
 def generate_level(level):
@@ -180,9 +217,12 @@ player, level_x, level_y = generate_level(level_map)
 running = True
 while running:
     for event in pygame.event.get():
+        location = False
         if event.type == pygame.QUIT:
             terminate()
         if event.type == pygame.KEYDOWN:
+            right = False
+            left = False
             if not pygame.sprite.spritecollideany(player, left_group):
                 if event.key == pygame.K_LEFT:
                     player.left = True
@@ -203,19 +243,35 @@ while running:
                 if pygame.sprite.spritecollideany(player, tiles_group):
                     player.rect = player.rect.move(0, -200)
             if event.key == pygame.K_n:
+                x = randrange(80, 990)
+                ys = [80, 230, 380, 530]
+                y = choice(ys)
+                for i in range(100):
+                    if x + i == player.rect.x:
+                        Mob(x - 100, y)
+                        break
+                    elif x + i == player.rect.x:
+                        Mob(x + 100, y)
+                        break
+                else:
+                    Mob(x, y)
                 if player.right:
+                    location = True
+                else:
+                    location = False
+                if location:
                     Gun(player.rect.x + 50, player.rect.y + 8)
                 else:
                     Gun(player.rect.x - 28, player.rect.y + 8)
 
-    make_fon('data/fon2.png')
+
+    make_fon('data/phone2.png')
     gun_group.update()
+    mob_group.update()
     player_group.update()
     tiles_group.draw(screen)
     gun_group.draw(screen)
+    mob_group.draw(screen)
     player_group.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
-
-
-terminate()
