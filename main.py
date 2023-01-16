@@ -265,7 +265,7 @@ while running:
                     Gun(player.rect.x - 28, player.rect.y + 8)
 
 
-    make_fon('data/phone2.png')
+    make_fon('data/fon2.png')
     gun_group.update()
     mob_group.update()
     player_group.update()
