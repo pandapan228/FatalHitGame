@@ -9,6 +9,9 @@ WIDTH, HEIGHT = 1130, 700
 FPS = 50
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+LOBBY_MUSIC = pygame.mixer.Sound('data/lobby_music.mp3')
+GAME_MUSIC = pygame.mixer.Sound('data/game_music.mp3')
+FINAL_MUSIC = pygame.mixer.Sound('data/final_music.mp3')
 
 
 def terminate():
@@ -38,13 +41,16 @@ def make_fon(name):
 
 
 def greeting():
+    global LOBBY_MUSIC
     make_fon('data/dungeon_greeting.png')
+    LOBBY_MUSIC.play(-1)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
+                LOBBY_MUSIC.stop()
                 return  # начинаем игру
         pygame.display.flip()
         clock.tick(FPS)
@@ -106,6 +112,20 @@ class Wall(pygame.sprite.Sprite):
             tile_width * pos_x + 15, tile_height * pos_y + 5)
 
 
+class Score:
+    def __init__(self):
+        self.kill_count = 0
+
+    def add_kill(self):
+        self.kill_count += 1
+
+    def get_score(self):
+        return self.kill_count
+
+
+score = Score()
+
+
 class Mob(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(mob_group, all_sprites)
@@ -121,22 +141,12 @@ class Mob(pygame.sprite.Sprite):
         if not pygame.sprite.spritecollideany(self, tiles_group):
             self.rect = self.rect.move(0, 10)
         if self.rect.x >= 500:
-            if not pygame.sprite.spritecollideany(self, left_group):
-                self.image = self.mob_image2
-                self.rect.move(-10, 0)
-            else:
-                self.image = self.mob_image1
-                self.rect.move(10, 0)
+            self.image = self.mob_image2
         else:
-            if not pygame.sprite.spritecollideany(self, right_group):
-                self.image = self.mob_image1
-                self.rect.move(10, 0)
-            else:
-                self.image = self.mob_image2
-                self.rect.move(-10, 0)
+            self.image = self.mob_image1
         if pygame.sprite.spritecollideany(self, gun_group):
             self.kill()
-
+            score.add_kill()
 
 
 class Gun(pygame.sprite.Sprite):
@@ -146,17 +156,18 @@ class Gun(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(pos_x, pos_y)
 
     def update(self):
-        if player.left:
+        if not player.location:
             self.image = load_image('data/gun_sprite11.png')
             if (pygame.sprite.spritecollideany(self, left_group)
                     or pygame.sprite.spritecollideany(self, tiles_group)):
                 self.kill()
             else:
                 self.rect = self.rect.move(-50, 0)
-        if player.right:
+        else:
             self.image = load_image('data/gun_sprite1.png')
             if (pygame.sprite.spritecollideany(self, right_group)
-                    or pygame.sprite.spritecollideany(self, tiles_group)):
+                    or pygame.sprite.spritecollideany(self, tiles_group)
+                    or pygame.sprite.spritecollideany(self, mob_group)):
                 self.kill()
             else:
                 self.rect = self.rect.move(50, 0)
@@ -169,28 +180,60 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(
             pos_x * tile_width + 15, pos_y * tile_height + 5)
         self.pos = pos_x, pos_y
-        self.left = False
-        self.right = True
+        self.location = True
         self.count = 0
 
     def update(self):
+        global GAME_MUSIC
+        GAME_MUSIC.play(-1)
         if not pygame.sprite.spritecollideany(self, tiles_group):
             self.rect = self.rect.move(0, 10)
-        if self.left:
+        if not self.location:
             if self.count % 2 == 0:
                 self.image = load_image('data/player_sprite33.png')
             else:
                 self.image = load_image('data/player_sprite22.png')
 
-        if self.right:
+        else:
             if self.count % 2 == 0:
                 self.image = load_image('data/player_sprite3.png')
             else:
                 self.image = load_image('data/player_sprite2.png')
         if pygame.sprite.spritecollideany(self, mob_group):
             self.kill()
+            GAME_MUSIC.stop()
+            file = open('data/score.csv', mode='w')
+            count = score.get_score()
+            text = f'GAME SCORE: {count}'
+            file.write(text)
+            file.close()
             end_screen()
             terminate()
+
+
+def end_screen():
+    global FINAL_MUSIC
+    make_fon('data/end_screen.png')
+    FINAL_MUSIC.play(-1)
+    ending_text = ['ИГРА ОКОНЧЕНА', ''
+                   f'ВАШ СЧЁТ: {score.get_score()}']
+    font = pygame.font.Font(None, 75)
+    text_coord = 75
+    for line in ending_text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        ending_rect = string_rendered.get_rect()
+        text_coord += 75
+        ending_rect.top = text_coord
+        ending_rect.x = 10
+        text_coord += ending_rect.height
+        screen.blit(string_rendered, ending_rect)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                FINAL_MUSIC.stop()
+                terminate()
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
 def generate_level(level):
@@ -225,16 +268,14 @@ while running:
             left = False
             if not pygame.sprite.spritecollideany(player, left_group):
                 if event.key == pygame.K_LEFT:
-                    player.left = True
-                    player.right = False
+                    player.location = False
                     player.count += 1
                     player.rect = player.rect.move(-30, 0)
             else:
                 player.rect = player.rect.move(10, 0)
             if not pygame.sprite.spritecollideany(player, right_group):
                 if event.key == pygame.K_RIGHT:
-                    player.right = True
-                    player.left = False
+                    player.location = True
                     player.count += 1
                     player.rect = player.rect.move(30, 0)
             else:
@@ -246,24 +287,11 @@ while running:
                 x = randrange(80, 990)
                 ys = [80, 230, 380, 530]
                 y = choice(ys)
-                for i in range(100):
-                    if x + i == player.rect.x:
-                        Mob(x - 100, y)
-                        break
-                    elif x + i == player.rect.x:
-                        Mob(x + 100, y)
-                        break
-                else:
-                    Mob(x, y)
-                if player.right:
-                    location = True
-                else:
-                    location = False
-                if location:
+                Mob(x, y)
+                if player.location:
                     Gun(player.rect.x + 50, player.rect.y + 8)
                 else:
                     Gun(player.rect.x - 28, player.rect.y + 8)
-
 
     make_fon('data/fon2.png')
     gun_group.update()
